@@ -1,22 +1,29 @@
 #include "UbidotsManager.h"
 
 UbidotsManager::UbidotsManager(const char *wifiSSID, const char *wifiPassword, const char *ubidotsToken,
-                               const char *device, const char *varTemp, const char *varHum)
+                               const char *device, const char *varTemp, const char *varHum, const char *varLight)
     : ssid(wifiSSID), password(wifiPassword), token(ubidotsToken),
-      deviceLabel(device), variableLabelTemp(varTemp), variableLabelHum(varHum) {}
+      deviceLabel(device), variableLabelTemp(varTemp), variableLabelHum(varHum), variableLabelLight(varLight) {}
 
 void UbidotsManager::connectWiFi()
 {
     WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED)
+    unsigned long startMillis = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startMillis < 10000) // 10 segundos de espera
     {
-        delay(500);
         Serial.print(".");
     }
-    Serial.println("\nConectado a WiFi");
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        Serial.println("\nConectado a WiFi");
+    }
+    else
+    {
+        Serial.println("\nFallo la conexión a WiFi");
+    }
 }
 
-void UbidotsManager::sendToUbidots(float temperature, float humidity)
+void UbidotsManager::sendToUbidots(float temperature, float humidity, int lightState)
 {
     if (WiFi.status() == WL_CONNECTED)
     {
@@ -26,7 +33,9 @@ void UbidotsManager::sendToUbidots(float temperature, float humidity)
         http.addHeader("Content-Type", "application/json");
         http.addHeader("X-Auth-Token", token);
 
-        String payload = "{\"temperatura\":" + String(temperature) + ",\"humedad\":" + String(humidity) + "}";
+        String payload = "{\"" + String(variableLabelTemp) + "\":" + String(temperature) + "," +
+                         "\"" + String(variableLabelHum) + "\":" + String(humidity) + "," +
+                         "\"" + String(variableLabelLight) + "\":" + String(lightState) + "}";
         int httpResponseCode = http.POST(payload);
         http.end();
 
