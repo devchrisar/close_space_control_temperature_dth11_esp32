@@ -4,7 +4,7 @@
 
 #define MQTT_BROKER "broker.mqtt.cool"
 #define MQTT_PORT 1883
-#define MQTT_TOPIC "ae3/topic"
+#define MQTT_ID "ESP32Client_publisher"
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
@@ -37,7 +37,7 @@ void MQTTManager::reconnect()
         {
             lastReconnectAttempt = currentMillis;
             Serial.print("Reconectando al broker MQTT...");
-            if (mqttClient.connect("ESP32Client"))
+            if (mqttClient.connect(MQTT_ID))
             {
                 Serial.println("Conectado.");
             }
@@ -51,11 +51,11 @@ void MQTTManager::reconnect()
     }
 }
 
-void MQTTManager::publish(String payload)
+void MQTTManager::publish(String topic, String payload)
 {
     Serial.println("------Enviando datos a MQTT--------:");
     Serial.println(payload);
-    if (mqttClient.publish(MQTT_TOPIC, payload.c_str()))
+    if (mqttClient.publish(topic.c_str(), payload.c_str()))
     {
         Serial.println("Datos enviados a MQTT.");
     }

@@ -7,6 +7,7 @@ class JsonManager
 {
 public:
     String createJson(float temperature, float humidity, int light);
+    String createPWMJson(int pwm);
 };
 
 #endif

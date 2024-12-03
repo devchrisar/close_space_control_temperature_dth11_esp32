@@ -8,7 +8,7 @@ class MQTTManager
 public:
     void init();
     void reconnect();
-    void publish(String payload);
+    void publish(String topic, String payload);
     bool isConnected();
     void loop();
 };

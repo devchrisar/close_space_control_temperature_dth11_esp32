@@ -5,6 +5,7 @@
 #include "UbidotsManager.h"
 #include "JsonManager.h"
 #include "MQTTManager.h"
+#include "PWMManager.h"
 
 // Configuración WiFi y Ubidots (variables de entorno)
 // Para configurar las variables de entorno, crear un archivo .env en la raíz del proyecto
@@ -25,8 +26,12 @@
 #define DHT_TYPE DHT11
 #define LED_ROJO_PIN 5
 #define LED_AZUL_PIN 4
-#define LDR_PIN 16
+#define LDR_PIN 34
 #define LED_LDR_PIN 18
+
+// Configuración MQTT
+#define MQTT_TOPIC "ae4/topic"
+#define MQTT_TOPIC_PWM "ae4/pwm"
 
 // Umbrales de temperatura y humedad
 const int TEMPERATURA_UMBRAL = 30;
@@ -35,7 +40,7 @@ const int HUMEDAD_MAXIMA = 60;
 
 // Intervalos de tiempo
 unsigned long lastSendTime = 0;
-const unsigned long sendInterval = 300000; // 5 minutos
+const unsigned long sendInterval = 60000; // 1 minuto
 
 // Instancias de las clases
 SensorManager sensor(DHT_PIN, DHT_TYPE);
@@ -82,35 +87,30 @@ void loop()
     float humedad = kalmanHum.update(sensor.getHumidity());
 
     // Lectura del estado del sensor LDR
-    int ldrState = digitalRead(LDR_PIN);
+    int ldrValue = analogRead(LDR_PIN);
 
-    // Validar lectura de temperatura
-    if (temperatura == -1.0)
-    {
-      Serial.println("Error al leer la temperatura.");
-    }
-    else
+    // Validar lectura sensores
+    if (temperatura != -1.0 && humedad != -1.0)
     {
       Serial.print("Temperatura: ");
-      Serial.print(temperatura);
+      Serial.println(temperatura);
       Serial.println("°C");
-    }
-
-    // Validar lectura de humedad
-    if (humedad == -1.0)
-    {
-      Serial.println("Error al leer la humedad.");
+      Serial.print("Humedad: ");
+      Serial.println(humedad);
+      Serial.println("%");
+      Serial.print("LDR: ");
+      Serial.println(ldrValue);
     }
     else
     {
-      Serial.print("Humedad: ");
-      Serial.print(humedad);
-      Serial.println("%");
+      Serial.println("Error al leer los sensores.");
     }
 
-    // Mostrar estado del sensor LDR
-    Serial.print("Estado del LDR: ");
-    Serial.println(ldrState == LOW ? "Oscuridad" : "Luz detectada");
+    // Calcular PWM
+    int pwmValue = PWMManager::calculatePWM(temperatura, humedad, ldrValue);
+
+    Serial.print("PWM calculado: ");
+    Serial.println(pwmValue);
 
     // Control del LED rojo (temperatura)
     if (temperatura > TEMPERATURA_UMBRAL)
@@ -133,7 +133,8 @@ void loop()
     }
 
     // Control del LED asociado al LDR
-    if (ldrState == LOW) // Oscuridad detectada
+    // Si la lectura del LDR es menor a 500, encender el LED
+    if (ldrValue < 500)
     {
       ledLDR.turnOn();
     }
@@ -145,9 +146,12 @@ void loop()
     if (currentMillis - lastSendTime >= sendInterval)
     {
       // Enviar datos
-      String mqttPayload = jsonManager.createJson(temperatura, humedad, ldrState);
-      mqttManager.publish(mqttPayload);
-      ubidots.sendToUbidots(temperatura, humedad, ldrState);
+      String mqttPayload = jsonManager.createJson(temperatura, humedad, ldrValue);
+      mqttManager.publish(MQTT_TOPIC, mqttPayload);
+      // JSON para PWM
+      String pwmPayload = jsonManager.createPWMJson(pwmValue);
+      mqttManager.publish(MQTT_TOPIC_PWM, pwmPayload);
+      ubidots.sendToUbidots(temperatura, humedad, ldrValue);
 
       // Actualizar el tiempo de envío
       lastSendTime = currentMillis;
